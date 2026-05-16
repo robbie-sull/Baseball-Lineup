@@ -206,6 +206,7 @@
         let currentInning = 1;
 
         function parseCSV(csvText) {
+            // Split into rows and clean up cell contents
             const rows = csvText.split(/\r?\n/).map(row => {
                 return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
                           .map(cell => cell.replace(/^"|"$/g, '').trim());
@@ -213,79 +214,47 @@
 
             if (rows.length === 0) return;
 
-            // Prepare blank innings
+            // Prepare blank template structure for all 6 innings
             for (let i = 1; i <= 6; i++) {
                 gameData[i] = { P:'', C:'', '1B':'', '2B':'', SS:'', '3B':'', LF:'', LCF:'', RCF:'', RF:'', bench:[] };
             }
 
             const header = rows[0];
-            const standardPositions = ['P', 'C', '1B', '2B', 'SS', '3B', 'LF', 'LCF', 'RCF', 'RF'];
-            let isPositionInHeader = header.some(h => standardPositions.includes(h.toUpperCase().trim()));
-
-            if (isPositionInHeader) {
-                // Layout Option A: Columns are Positions, Rows are Innings
-                const posIndices = {};
-                header.forEach((h, idx) => {
-                    const cleanH = h.toUpperCase().trim();
-                    if (standardPositions.includes(cleanH) || ['BENCH', 'DUGOUT', 'SITTING', 'OUT'].includes(cleanH)) {
-                        posIndices[cleanH] = idx;
-                    }
+            
+            // 1. Identify where the 'Pos' position row header column is located
+            const posColIdx = header.findIndex(h => h.toLowerCase().trim() === 'pos' || h.toLowerCase().trim() === 'position');
+            
+            // 2. Map out columns matching "1st Inning", "2nd Inning", etc.
+            const inningCols = {};
+            for (let i = 1; i <= 6; i++) {
+                inningCols[i] = header.findIndex(h => {
+                    const clean = h.toLowerCase().replace(/\s+/g, '');
+                    return clean.includes(`${i}st`) || clean.includes(`${i}nd`) || clean.includes(`${i}rd`) || clean.includes(`${i}th`) || clean === `inning${i}` || clean === `${i}`;
                 });
+            }
 
-                for (let r = 1; r < rows.length; r++) {
-                    const row = rows[r];
-                    if (!row[0]) continue;
-                    
-                    const inningNum = parseInt(row[0].toString().replace(/\D/g, ''));
-                    if (isNaN(inningNum) || inningNum < 1 || inningNum > 6) continue;
+            // 3. Process every spreadsheet row to extract names matching positions
+            for (let r = 1; r < rows.length; r++) {
+                const row = rows[r];
+                if (posColIdx === -1 || !row[posColIdx]) continue;
+                
+                let pos = row[posColIdx].toUpperCase().trim();
+                
+                // Translate your spreadsheet's short outfield notation to match field overlay names
+                if (pos === 'LC') pos = 'LCF';
+                if (pos === 'RC') pos = 'RCF';
 
-                    Object.keys(posIndices).forEach(pos => {
-                        const idx = posIndices[pos];
-                        if (row[idx]) {
-                            const val = row[idx].trim();
-                            if (!val) return;
-                            
-                            if (['BENCH', 'DUGOUT', 'SITTING', 'OUT'].includes(pos)) {
-                                const players = val.split(/[,;\+/]/).map(p => p.trim()).filter(p => p);
-                                gameData[inningNum].bench.push(...players);
-                            } else {
-                                gameData[inningNum][pos] = val;
-                            }
-                        }
-                    });
-                }
-            } else {
-                // Layout Option B: Columns are Innings, Rows are Players
-                const inningCols = {};
+                // Look across the row to find who plays this position for each inning
                 for (let i = 1; i <= 6; i++) {
-                    inningCols[i] = header.findIndex(h => {
-                        const cleanH = h.toLowerCase().replace(/\s+/g, '');
-                        return cleanH === `inning${i}` || cleanH === `${i}` || cleanH === `inn${i}`;
-                    });
-                }
+                    const colIdx = inningCols[i];
+                    if (colIdx !== -1 && row[colIdx]) {
+                        const playerName = row[colIdx].trim();
+                        if (!playerName) continue;
 
-                for (let r = 1; r < rows.length; r++) {
-                    const row = rows[r];
-                    const playerName = row[0];
-                    if (!playerName) continue;
-
-                    for (let i = 1; i <= 6; i++) {
-                        const colIdx = inningCols[i];
-                        if (colIdx !== undefined && colIdx !== -1 && row[colIdx]) {
-                            const pos = row[colIdx].toUpperCase().trim();
-                            if (!pos) continue;
-
-                            if (['BENCH', 'DUGOUT', 'SITTING', 'OUT', 'X', '-'].includes(pos)) {
-                                gameData[i].bench.push(playerName);
-                            } else if (standardPositions.includes(pos)) {
-                                gameData[i][pos] = playerName;
-                            } else if (pos === 'CF') {
-                                if (!gameData[i]['LCF']) gameData[i]['LCF'] = playerName;
-                                else if (!gameData[i]['RCF']) gameData[i]['RCF'] = playerName;
-                                else gameData[i].bench.push(playerName);
-                            } else {
-                                gameData[i].bench.push(playerName);
-                            }
+                        if (['BENCH', 'DUGOUT', 'SITTING', 'OUT'].includes(pos)) {
+                            gameData[i].bench.push(playerName);
+                        } else {
+                            gameData[i][pos] = playerName;
                         }
                     }
                 }
@@ -295,12 +264,10 @@
         }
 
         async function fetchSpreadsheetData() {
-            // Added a dynamic time variable to bypass any 5-minute Google caching loops
             const cacheBuster = '&t=' + new Date().getTime();
             const googleSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0m8_RCfjBOeqFI4FcO04rtslrUchD7nvmY4D173Zp33_msEargr-DoaU1anfRBjblJdhvL7py5YZZ/pub?gid=779550576&single=true&output=csv' + cacheBuster;
             
             try {
-                // Secure server host lets us fetch straight from Google with no wrappers required
                 const response = await fetch(googleSheetUrl);
                 if (!response.ok) throw new Error('Network error');
                 const data = await response.text();
@@ -324,7 +291,7 @@
             document.getElementById('inning-text').innerText = `Inning ${currentInning}`;
             const data = gameData[currentInning];
 
-            // Render positions
+            // Assign layout text to elements
             document.getElementById('pos-P').innerText = data.P || '';
             document.getElementById('pos-C').innerText = data.C || '';
             document.getElementById('pos-1B').innerText = data["1B"] || '';
@@ -336,7 +303,7 @@
             document.getElementById('pos-RCF').innerText = data.RCF || '';
             document.getElementById('pos-RF').innerText = data.RF || '';
             
-            // Render lower Dugout cards
+            // Build dugout badges
             const benchContainer = document.getElementById('bench-list');
             benchContainer.innerHTML = '';
             
