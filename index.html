@@ -71,10 +71,10 @@
         }
 
         #inning-text {
-            font-size: 26px;
+            font-size: 24px;
             font-weight: bold;
             color: white;
-            min-width: 220px;
+            min-width: 240px;
             text-align: center;
             text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
         }
@@ -109,28 +109,28 @@
             }
         }
 
-        /* Gray text optimized for dirt visibility */
+        /* Dark grey text optimized for clear dirt visibility */
         .dirt-pos {
             color: var(--dirt-color);
         }
 
-        /* White text with drop-shadow for grass visibility */
+        /* Bright white text with a high-contrast outline drop shadow for grass visibility */
         .grass-pos {
             color: var(--grass-color);
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.7), -1px -1px 3px rgba(0,0,0,0.7);
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8), -1px -1px 3px rgba(0,0,0,0.8), 1px -1px 3px rgba(0,0,0,0.8), -1px 1px 3px rgba(0,0,0,0.8);
         }
 
-        /* Tuned coordinates to clear lines and remain perfectly centered */
-        #pos-C   { left: 53.6%; top: 84.5%; }
-        #pos-P   { left: 53.6%; top: 59.0%; }
-        #pos-3B  { left: 42.5%; top: 52.0%; }
-        #pos-1B  { left: 64.5%; top: 52.0%; }
-        #pos-SS  { left: 47.5%; top: 34.5%; }
-        #pos-2B  { left: 59.5%; top: 34.5%; }
-        #pos-LF  { left: 32.0%; top: 38.0%; }
-        #pos-LCF { left: 42.0%; top: 22.0%; }
-        #pos-RCF { left: 65.0%; top: 22.0%; }
-        #pos-RF  { left: 76.5%; top: 44.0%; }
+        /* Adjusted coordinate alignment to center names completely away from lines */
+        #pos-C   { left: 52.5%; top: 85.0%; }
+        #pos-P   { left: 52.5%; top: 61.0%; }
+        #pos-3B  { left: 39.5%; top: 52.0%; }
+        #pos-1B  { left: 65.5%; top: 52.0%; }
+        #pos-SS  { left: 45.5%; top: 36.5%; }
+        #pos-2B  { left: 60.5%; top: 36.5%; }
+        #pos-LF  { left: 30.0%; top: 38.5%; }
+        #pos-LCF { left: 39.5%; top: 21.5%; }
+        #pos-RCF { left: 66.5%; top: 21.5%; }
+        #pos-RF  { left: 79.5%; top: 38.5%; }
 
         .dugout-container {
             margin-top: 20px;
@@ -178,7 +178,7 @@
 
     <div class="controls">
         <button class="btn" onclick="updateInning(-1)">&#10094;</button>
-        <span id="inning-text">Loading Sheet...</span>
+        <span id="inning-text">Connecting to Sheet...</span>
         <button class="btn" onclick="updateInning(1)">&#10095;</button>
     </div>
 
@@ -202,13 +202,9 @@
     </div>
 
     <script>
-        // Data placeholder structure populated dynamically from your Google Spreadsheet link
         const gameData = {};
         let currentInning = 1;
 
-        // Smart, layout-agnostic parser that automatically processes either format:
-        // 1. Columns as Innings & Rows as Players
-        // 2. Columns as Positions & Rows as Innings
         function parseCSV(csvText) {
             const rows = csvText.split(/\r?\n/).map(row => {
                 return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
@@ -217,7 +213,7 @@
 
             if (rows.length === 0) return;
 
-            // Initialize standard data map
+            // Prepare blank innings
             for (let i = 1; i <= 6; i++) {
                 gameData[i] = { P:'', C:'', '1B':'', '2B':'', SS:'', '3B':'', LF:'', LCF:'', RCF:'', RF:'', bench:[] };
             }
@@ -227,7 +223,7 @@
             let isPositionInHeader = header.some(h => standardPositions.includes(h.toUpperCase().trim()));
 
             if (isPositionInHeader) {
-                // Style A: Columns are Positions, Rows are Innings
+                // Layout Option A: Columns are Positions, Rows are Innings
                 const posIndices = {};
                 header.forEach((h, idx) => {
                     const cleanH = h.toUpperCase().trim();
@@ -259,7 +255,7 @@
                     });
                 }
             } else {
-                // Style B: Columns are Innings, Rows are Players
+                // Layout Option B: Columns are Innings, Rows are Players
                 const inningCols = {};
                 for (let i = 1; i <= 6; i++) {
                     inningCols[i] = header.findIndex(h => {
@@ -299,15 +295,17 @@
         }
 
         async function fetchSpreadsheetData() {
-            // Converts your provided URL safely into a clean text CSV live data stream
-            const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0m8_RCfjBOeqFI4FcO04rtslrUchD7nvmY4D173Zp33_msEargr-DoaU1anfRBjblJdhvL7py5YZZ/pub?gid=779550576&single=true&output=csv';
+            const googleSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0m8_RCfjBOeqFI4FcO04rtslrUchD7nvmY4D173Zp33_msEargr-DoaU1anfRBjblJdhvL7py5YZZ/pub?gid=779550576&single=true&output=csv';
+            // Wraps target URL inside an open access endpoint to clear local CORS restrictions natively
+            const cleanProxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(googleSheetUrl);
+            
             try {
-                const response = await fetch(csvUrl);
+                const response = await fetch(cleanProxyUrl);
                 if (!response.ok) throw new Error('Network error');
                 const data = await response.text();
                 parseCSV(data);
             } catch (error) {
-                console.error("Error loading spreadsheet data:", error);
+                console.error("Data Fetch Exception:", error);
                 document.getElementById('inning-text').innerText = "Connection Error";
             }
         }
@@ -325,7 +323,7 @@
             document.getElementById('inning-text').innerText = `Inning ${currentInning}`;
             const data = gameData[currentInning];
 
-            // Render positions onto the background field graphic map smoothly
+            // Render positions
             document.getElementById('pos-P').innerText = data.P || '';
             document.getElementById('pos-C').innerText = data.C || '';
             document.getElementById('pos-1B').innerText = data["1B"] || '';
@@ -337,7 +335,7 @@
             document.getElementById('pos-RCF').innerText = data.RCF || '';
             document.getElementById('pos-RF').innerText = data.RF || '';
             
-            // Render lower Dugout Pill badges
+            // Render lower Dugout cards
             const benchContainer = document.getElementById('bench-list');
             benchContainer.innerHTML = '';
             
@@ -353,7 +351,6 @@
             }
         }
 
-        // Trigger dynamic spreadsheet fetch on app load
         window.onload = fetchSpreadsheetData;
     </script>
 </body>
