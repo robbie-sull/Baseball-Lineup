@@ -318,4 +318,48 @@
                     const span = document.createElement('span');
                     span.className = 'batting-player';
                     span.innerHTML = `<span class="order-num">${index + 1}</span>${player}`;
-                    batting
+                    battingContainer.appendChild(span);
+                });
+            } else {
+                battingContainer.innerHTML = '<span style="color:#999; font-style:italic; font-size:16px;">No Order Set</span>';
+            }
+        }
+
+        function renderPositions() {
+            if (!gameData[currentInning]) return;
+            
+            document.getElementById('inning-text').innerText = `Inning ${currentInning}`;
+            const data = gameData[currentInning];
+
+            // Assign layout text to elements
+            document.getElementById('pos-P').innerText = data.P || '';
+            document.getElementById('pos-C').innerText = data.C || '';
+            document.getElementById('pos-1B').innerText = data["1B"] || '';
+            document.getElementById('pos-2B').innerText = data["2B"] || '';
+            document.getElementById('pos-SS').innerText = data.SS || '';
+            document.getElementById('pos-3B').innerText = data["3B"] || '';
+            document.getElementById('pos-LF').innerText = data.LF || '';
+            document.getElementById('pos-LCF').innerText = data.LCF || '';
+            document.getElementById('pos-RCF').innerText = data.RCF || '';
+            document.getElementById('pos-RF').innerText = data.RF || '';
+            
+            // Build dugout badges
+            const benchContainer = document.getElementById('bench-list');
+            benchContainer.innerHTML = '';
+            
+            if (data.bench && data.bench.length > 0) {
+                data.bench.forEach(player => {
+                    const span = document.createElement('span');
+                    span.className = 'bench-player';
+                    span.innerText = player;
+                    benchContainer.appendChild(span);
+                });
+            } else {
+                benchContainer.innerHTML = '<span style="color:#999; font-style:italic; font-size:16px;">Empty</span>';
+            }
+        }
+
+        window.onload = fetchSpreadsheetData;
+    </script>
+</body>
+</html>
