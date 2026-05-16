@@ -178,7 +178,7 @@
 
     <div class="controls">
         <button class="btn" onclick="updateInning(-1)">&#10094;</button>
-        <span id="inning-text">Connecting to Sheet...</span>
+        <span id="inning-text">Syncing Roster...</span>
         <button class="btn" onclick="updateInning(1)">&#10095;</button>
     </div>
 
@@ -295,12 +295,13 @@
         }
 
         async function fetchSpreadsheetData() {
-            const googleSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0m8_RCfjBOeqFI4FcO04rtslrUchD7nvmY4D173Zp33_msEargr-DoaU1anfRBjblJdhvL7py5YZZ/pub?gid=779550576&single=true&output=csv';
-            // Wraps target URL inside an open access endpoint to clear local CORS restrictions natively
-            const cleanProxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(googleSheetUrl);
+            // Added a dynamic time variable to bypass any 5-minute Google caching loops
+            const cacheBuster = '&t=' + new Date().getTime();
+            const googleSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0m8_RCfjBOeqFI4FcO04rtslrUchD7nvmY4D173Zp33_msEargr-DoaU1anfRBjblJdhvL7py5YZZ/pub?gid=779550576&single=true&output=csv' + cacheBuster;
             
             try {
-                const response = await fetch(cleanProxyUrl);
+                // Secure server host lets us fetch straight from Google with no wrappers required
+                const response = await fetch(googleSheetUrl);
                 if (!response.ok) throw new Error('Network error');
                 const data = await response.text();
                 parseCSV(data);
