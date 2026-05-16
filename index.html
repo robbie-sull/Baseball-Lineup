@@ -132,7 +132,8 @@
         #pos-RCF { left: 66.5%; top: 21.5%; }
         #pos-RF  { left: 79.5%; top: 38.5%; }
 
-        .dugout-container {
+        /* Unified block layout for informational cards */
+        .info-card {
             margin-top: 20px;
             background: white;
             padding: 15px 25px;
@@ -144,7 +145,7 @@
             text-align: center;
         }
 
-        .dugout-title {
+        .card-title {
             font-weight: bold;
             color: #666;
             margin-bottom: 12px;
@@ -153,7 +154,7 @@
             letter-spacing: 1px;
         }
 
-        #bench-list {
+        .pill-container {
             display: flex;
             justify-content: center;
             gap: 12px;
@@ -169,6 +170,22 @@
             border-radius: 24px;
             border: 1px solid #fde68a;
             display: inline-block;
+        }
+
+        /* Distinct theme styles for the batting order tokens */
+        .batting-player {
+            background: #f3f4f6;
+            color: #1f2937;
+            padding: 8px 16px;
+            border-radius: 24px;
+            border: 1px solid #e5e7eb;
+            display: inline-block;
+        }
+
+        .order-num {
+            color: var(--orange-bg);
+            margin-right: 6px;
+            font-weight: 800;
         }
     </style>
 </head>
@@ -196,17 +213,22 @@
         <div id="pos-RF" class="player-label grass-pos"></div>
     </div>
 
-    <div class="dugout-container">
-        <div class="dugout-title">Dugout</div>
-        <div id="bench-list"></div>
+    <div class="info-card">
+        <div class="card-title">Dugout</div>
+        <div id="bench-list" class="pill-container"></div>
+    </div>
+
+    <div class="info-card">
+        <div class="card-title">Batting Order</div>
+        <div id="batting-list" class="pill-container"></div>
     </div>
 
     <script>
         const gameData = {};
+        let battingOrder = [];
         let currentInning = 1;
 
         function parseCSV(csvText) {
-            // Split into rows and clean up cell contents
             const rows = csvText.split(/\r?\n/).map(row => {
                 return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
                           .map(cell => cell.replace(/^"|"$/g, '').trim());
@@ -214,17 +236,15 @@
 
             if (rows.length === 0) return;
 
-            // Prepare blank template structure for all 6 innings
+            // Reset data blocks
+            battingOrder = [];
             for (let i = 1; i <= 6; i++) {
                 gameData[i] = { P:'', C:'', '1B':'', '2B':'', SS:'', '3B':'', LF:'', LCF:'', RCF:'', RF:'', bench:[] };
             }
 
             const header = rows[0];
-            
-            // 1. Identify where the 'Pos' position row header column is located
             const posColIdx = header.findIndex(h => h.toLowerCase().trim() === 'pos' || h.toLowerCase().trim() === 'position');
             
-            // 2. Map out columns matching "1st Inning", "2nd Inning", etc.
             const inningCols = {};
             for (let i = 1; i <= 6; i++) {
                 inningCols[i] = header.findIndex(h => {
@@ -233,18 +253,21 @@
                 });
             }
 
-            // 3. Process every spreadsheet row to extract names matching positions
+            // Process every row
             for (let r = 1; r < rows.length; r++) {
                 const row = rows[r];
+                
+                // Extract Batting Order from Column A (Index 0)
+                if (row[0] && row[0].toLowerCase().trim() !== 'batting') {
+                    battingOrder.push(row[0].trim());
+                }
+
                 if (posColIdx === -1 || !row[posColIdx]) continue;
                 
                 let pos = row[posColIdx].toUpperCase().trim();
-                
-                // Translate your spreadsheet's short outfield notation to match field overlay names
                 if (pos === 'LC') pos = 'LCF';
                 if (pos === 'RC') pos = 'RCF';
 
-                // Look across the row to find who plays this position for each inning
                 for (let i = 1; i <= 6; i++) {
                     const colIdx = inningCols[i];
                     if (colIdx !== -1 && row[colIdx]) {
@@ -260,6 +283,7 @@
                 }
             }
 
+            renderBattingOrder();
             renderPositions();
         }
 
@@ -285,41 +309,13 @@
             renderPositions();
         }
 
-        function renderPositions() {
-            if (!gameData[currentInning]) return;
+        function renderBattingOrder() {
+            const battingContainer = document.getElementById('batting-list');
+            battingContainer.innerHTML = '';
             
-            document.getElementById('inning-text').innerText = `Inning ${currentInning}`;
-            const data = gameData[currentInning];
-
-            // Assign layout text to elements
-            document.getElementById('pos-P').innerText = data.P || '';
-            document.getElementById('pos-C').innerText = data.C || '';
-            document.getElementById('pos-1B').innerText = data["1B"] || '';
-            document.getElementById('pos-2B').innerText = data["2B"] || '';
-            document.getElementById('pos-SS').innerText = data.SS || '';
-            document.getElementById('pos-3B').innerText = data["3B"] || '';
-            document.getElementById('pos-LF').innerText = data.LF || '';
-            document.getElementById('pos-LCF').innerText = data.LCF || '';
-            document.getElementById('pos-RCF').innerText = data.RCF || '';
-            document.getElementById('pos-RF').innerText = data.RF || '';
-            
-            // Build dugout badges
-            const benchContainer = document.getElementById('bench-list');
-            benchContainer.innerHTML = '';
-            
-            if (data.bench && data.bench.length > 0) {
-                data.bench.forEach(player => {
+            if (battingOrder.length > 0) {
+                battingOrder.forEach((player, index) => {
                     const span = document.createElement('span');
-                    span.className = 'bench-player';
-                    span.innerText = player;
-                    benchContainer.appendChild(span);
-                });
-            } else {
-                benchContainer.innerHTML = '<span style="color:#999; font-style:italic; font-size:16px;">Empty</span>';
-            }
-        }
-
-        window.onload = fetchSpreadsheetData;
-    </script>
-</body>
-</html>
+                    span.className = 'batting-player';
+                    span.innerHTML = `<span class="order-num">${index + 1}</span>${player}`;
+                    batting
