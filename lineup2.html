@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Little League Defensive Lineup Tracker</title>
+    <style>
+        :root {
+            --orange-bg: #f59e0b;
+            --dirt-color: #555555;
+            --grass-color: #ffffff;
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--orange-bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 10px;
+            text-shadow: 1px 1px 4px rgba(0,0,0,0.2);
+            font-size: 28px;
+            text-align: center;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 30px;
+            backdrop-filter: blur(5px);
+        }
+
+        .btn {
+            background-color: white;
+            color: var(--orange-bg);
+            border: none;
+            padding: 10px 20px;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.1s, box-shadow 0.1s;
+            user-select: none;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        #inning-text {
+            font-size: 26px;
+            font-weight: bold;
+            color: white;
+            min-width: 220px;
+            text-align: center;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .field-container {
+            position: relative;
+            width: 100%;
+            max-width: 850px;
+            aspect-ratio: 1440 / 1080;
+            background-image: url('https://docs.google.com/drawings/d/e/2PACX-1vS6Suu_uCGk_D68V_59HI_Z-17RyuL9ZnP_ghzmF8eplc4Ydt8CKMapU6uXjOBDUMkATyUtmJ-Ik5o4/pub?w=1440&h=1080');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            overflow: hidden;
+            background-color: var(--orange-bg);
+        }
+
+        .player-label {
+            position: absolute;
+            font-weight: bold;
+            font-size: 2.3vw;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        @media (min-width: 850px) {
+            .player-label {
+                font-size: 20px;
+            }
+        }
+
+        /* Gray text optimized for dirt visibility */
+        .dirt-pos {
+            color: var(--dirt-color);
+        }
+
+        /* White text with drop-shadow for grass visibility */
+        .grass-pos {
+            color: var(--grass-color);
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.7), -1px -1px 3px rgba(0,0,0,0.7);
+        }
+
+        /* Tuned coordinates to clear lines and remain perfectly centered */
+        #pos-C   { left: 53.6%; top: 84.5%; }
+        #pos-P   { left: 53.6%; top: 59.0%; }
+        #pos-3B  { left: 42.5%; top: 52.0%; }
+        #pos-1B  { left: 64.5%; top: 52.0%; }
+        #pos-SS  { left: 47.5%; top: 34.5%; }
+        #pos-2B  { left: 59.5%; top: 34.5%; }
+        #pos-LF  { left: 32.0%; top: 38.0%; }
+        #pos-LCF { left: 42.0%; top: 22.0%; }
+        #pos-RCF { left: 65.0%; top: 22.0%; }
+        #pos-RF  { left: 76.5%; top: 44.0%; }
+
+        .dugout-container {
+            margin-top: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 850px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .dugout-title {
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+
+        #bench-list {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .bench-player {
+            background: #fef3c7;
+            color: #d97706;
+            padding: 8px 20px;
+            border-radius: 24px;
+            border: 1px solid #fde68a;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Lineup Board</h1>
+
+    <div class="controls">
+        <button class="btn" onclick="updateInning(-1)">&#10094;</button>
+        <span id="inning-text">Loading Sheet...</span>
+        <button class="btn" onclick="updateInning(1)">&#10095;</button>
+    </div>
+
+    <div class="field-container">
+        <div id="pos-C" class="player-label dirt-pos"></div>
+        <div id="pos-P" class="player-label dirt-pos"></div>
+        <div id="pos-3B" class="player-label dirt-pos"></div>
+        <div id="pos-1B" class="player-label dirt-pos"></div>
+        <div id="pos-SS" class="player-label dirt-pos"></div>
+        <div id="pos-2B" class="player-label dirt-pos"></div>
+
+        <div id="pos-LF" class="player-label grass-pos"></div>
+        <div id="pos-LCF" class="player-label grass-pos"></div>
+        <div id="pos-RCF" class="player-label grass-pos"></div>
+        <div id="pos-RF" class="player-label grass-pos"></div>
+    </div>
+
+    <div class="dugout-container">
+        <div class="dugout-title">Dugout</div>
+        <div id="bench-list"></div>
+    </div>
+
+    <script>
+        // Data placeholder structure populated dynamically from your Google Spreadsheet link
+        const gameData = {};
+        let currentInning = 1;
+
+        // Smart, layout-agnostic parser that automatically processes either format:
+        // 1. Columns as Innings & Rows as Players
+        // 2. Columns as Positions & Rows as Innings
+        function parseCSV(csvText) {
+            const rows = csvText.split(/\r?\n/).map(row => {
+                return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+                          .map(cell => cell.replace(/^"|"$/g, '').trim());
+            }).filter(row => row.length > 0 && row.some(cell => cell !== ""));
+
+            if (rows.length === 0) return;
+
+            // Initialize standard data map
+            for (let i = 1; i <= 6; i++) {
+                gameData[i] = { P:'', C:'', '1B':'', '2B':'', SS:'', '3B':'', LF:'', LCF:'', RCF:'', RF:'', bench:[] };
+            }
+
+            const header = rows[0];
+            const standardPositions = ['P', 'C', '1B', '2B', 'SS', '3B', 'LF', 'LCF', 'RCF', 'RF'];
+            let isPositionInHeader = header.some(h => standardPositions.includes(h.toUpperCase().trim()));
+
+            if (isPositionInHeader) {
+                // Style A: Columns are Positions, Rows are Innings
+                const posIndices = {};
+                header.forEach((h, idx) => {
+                    const cleanH = h.toUpperCase().trim();
+                    if (standardPositions.includes(cleanH) || ['BENCH', 'DUGOUT', 'SITTING', 'OUT'].includes(cleanH)) {
+                        posIndices[cleanH] = idx;
+                    }
+                });
+
+                for (let r = 1; r < rows.length; r++) {
+                    const row = rows[r];
+                    if (!row[0]) continue;
+                    
+                    const inningNum = parseInt(row[0].toString().replace(/\D/g, ''));
+                    if (isNaN(inningNum) || inningNum < 1 || inningNum > 6) continue;
+
+                    Object.keys(posIndices).forEach(pos => {
+                        const idx = posIndices[pos];
+                        if (row[idx]) {
+                            const val = row[idx].trim();
+                            if (!val) return;
+                            
+                            if (['BENCH', 'DUGOUT', 'SITTING', 'OUT'].includes(pos)) {
+                                const players = val.split(/[,;\+/]/).map(p => p.trim()).filter(p => p);
+                                gameData[inningNum].bench.push(...players);
+                            } else {
+                                gameData[inningNum][pos] = val;
+                            }
+                        }
+                    });
+                }
+            } else {
+                // Style B: Columns are Innings, Rows are Players
+                const inningCols = {};
+                for (let i = 1; i <= 6; i++) {
+                    inningCols[i] = header.findIndex(h => {
+                        const cleanH = h.toLowerCase().replace(/\s+/g, '');
+                        return cleanH === `inning${i}` || cleanH === `${i}` || cleanH === `inn${i}`;
+                    });
+                }
+
+                for (let r = 1; r < rows.length; r++) {
+                    const row = rows[r];
+                    const playerName = row[0];
+                    if (!playerName) continue;
+
+                    for (let i = 1; i <= 6; i++) {
+                        const colIdx = inningCols[i];
+                        if (colIdx !== undefined && colIdx !== -1 && row[colIdx]) {
+                            const pos = row[colIdx].toUpperCase().trim();
+                            if (!pos) continue;
+
+                            if (['BENCH', 'DUGOUT', 'SITTING', 'OUT', 'X', '-'].includes(pos)) {
+                                gameData[i].bench.push(playerName);
+                            } else if (standardPositions.includes(pos)) {
+                                gameData[i][pos] = playerName;
+                            } else if (pos === 'CF') {
+                                if (!gameData[i]['LCF']) gameData[i]['LCF'] = playerName;
+                                else if (!gameData[i]['RCF']) gameData[i]['RCF'] = playerName;
+                                else gameData[i].bench.push(playerName);
+                            } else {
+                                gameData[i].bench.push(playerName);
+                            }
+                        }
+                    }
+                }
+            }
+
+            renderPositions();
+        }
+
+        async function fetchSpreadsheetData() {
+            // Converts your provided URL safely into a clean text CSV live data stream
+            const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0m8_RCfjBOeqFI4FcO04rtslrUchD7nvmY4D173Zp33_msEargr-DoaU1anfRBjblJdhvL7py5YZZ/pub?gid=779550576&single=true&output=csv';
+            try {
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error('Network error');
+                const data = await response.text();
+                parseCSV(data);
+            } catch (error) {
+                console.error("Error loading spreadsheet data:", error);
+                document.getElementById('inning-text').innerText = "Connection Error";
+            }
+        }
+
+        function updateInning(direction) {
+            currentInning += direction;
+            if (currentInning < 1) currentInning = 1;
+            if (currentInning > 6) currentInning = 6;
+            renderPositions();
+        }
+
+        function renderPositions() {
+            if (!gameData[currentInning]) return;
+            
+            document.getElementById('inning-text').innerText = `Inning ${currentInning}`;
+            const data = gameData[currentInning];
+
+            // Render positions onto the background field graphic map smoothly
+            document.getElementById('pos-P').innerText = data.P || '';
+            document.getElementById('pos-C').innerText = data.C || '';
+            document.getElementById('pos-1B').innerText = data["1B"] || '';
+            document.getElementById('pos-2B').innerText = data["2B"] || '';
+            document.getElementById('pos-SS').innerText = data.SS || '';
+            document.getElementById('pos-3B').innerText = data["3B"] || '';
+            document.getElementById('pos-LF').innerText = data.LF || '';
+            document.getElementById('pos-LCF').innerText = data.LCF || '';
+            document.getElementById('pos-RCF').innerText = data.RCF || '';
+            document.getElementById('pos-RF').innerText = data.RF || '';
+            
+            // Render lower Dugout Pill badges
+            const benchContainer = document.getElementById('bench-list');
+            benchContainer.innerHTML = '';
+            
+            if (data.bench && data.bench.length > 0) {
+                data.bench.forEach(player => {
+                    const span = document.createElement('span');
+                    span.className = 'bench-player';
+                    span.innerText = player;
+                    benchContainer.appendChild(span);
+                });
+            } else {
+                benchContainer.innerHTML = '<span style="color:#999; font-style:italic; font-size:16px;">Empty</span>';
+            }
+        }
+
+        // Trigger dynamic spreadsheet fetch on app load
+        window.onload = fetchSpreadsheetData;
+    </script>
+</body>
+</html>
